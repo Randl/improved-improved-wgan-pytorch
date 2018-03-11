@@ -39,12 +39,12 @@ class WGAN(nn.Module):
 
 
 class WGANGenerator(WGAN):
-    def __init__(self, input_size=100, num_filters=64, out_channels=3, out_size=32, n_extra_layers=0,
+    def __init__(self, input_size=100, num_filters=64, out_channels=3, output_size=32, n_extra_layers=0,
                  activation=nn.ReLU):
         super(WGANGenerator, self).__init__()
         self.activation = activation
         self.has_extra = n_extra_layers > 0
-        self.out_size = out_size
+        self.out_size = output_size
 
         first_filter = (self.out_size // 8) * num_filters
         self.first_conv_trans = nn.Sequential(

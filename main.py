@@ -20,16 +20,16 @@ parser = argparse.ArgumentParser(description='PyTorch Wasserstein GAN Training')
 parser.add_argument('--results_dir', metavar='RESULTS_DIR', default='./results', help='results dir')
 parser.add_argument('--save', metavar='SAVE', default='', help='saved folder')
 
-parser.add_argument('--dataset', metavar='DATASET', default='cifar10', help='dataset name')
+parser.add_argument('--dataset', metavar='DATASET', default='celeba', help='dataset name')
 parser.add_argument('--dataset-path', metavar='DATASET_PATH', default='./dataset', help='dataset folder')
 
-parser.add_argument('--input-size', type=int, default=32, help='image input size')
+parser.add_argument('--input-size', type=int, default=64, help='image input size')
 parser.add_argument('--channels', type=int, default=3, help='input image channels')
 parser.add_argument('--z-size', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--gen-filters', type=int, default=64)
 parser.add_argument('--disc-filters', type=int, default=64)
 parser.add_argument('--clamp', type=float, default=0.01, help='value to clamp weights on')
-parser.add_argument('--disc-iters', type=int, default=30,
+parser.add_argument('--disc-iters', type=int, default=5,
                     help='number of discriminator iterations per each generator iteration')
 parser.add_argument('--n_extra_layers', type=int, default=0,
                     help='Number of extra layers for generator and discriminator')
@@ -78,13 +78,20 @@ def main():
                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                                    ]))
     else:
-        return
+        # folder dataset
+        dataset = datasets.ImageFolder(root=args.dataset_path,
+                                       transform=transforms.Compose([
+                                           transforms.Resize(args.input_size),
+                                           transforms.CenterCrop(args.input_size),
+                                           transforms.ToTensor(),
+                                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                                       ]))
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True,
                                              num_workers=args.workers)
 
-    netG = models.WGANGenerator()
+    netG = models.WGANGenerator(output_size=args.input_size)
     print(netG)
-    netD = models.WGANDiscriminator()
+    netD = models.WGANDiscriminator(input_size=args.input_size)
     print(netD)
 
     fixed_noise = torch.FloatTensor(args.batch_size, args.z_size, 1, 1).normal_(0, 1)
