@@ -1,18 +1,19 @@
 import argparse
 import os
+from datetime import datetime
+
 import torch
+import torch.backends.cudnn as cudnn
 import torch.nn.parallel
 import torch.optim
 import torch.utils.data
 import torchvision.datasets as datasets
-import torchvision.utils as vutils
 import torchvision.transforms as transforms
-import torch.backends.cudnn as cudnn
-from datetime import datetime
-
+import torchvision.utils as vutils
 from torch.autograd import Variable
 from tqdm import tqdm, trange
 
+import loss_functions
 import models
 
 parser = argparse.ArgumentParser(description='PyTorch Wasserstein GAN Training')
@@ -28,7 +29,7 @@ parser.add_argument('--channels', type=int, default=3, help='input image channel
 parser.add_argument('--z-size', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--gen-filters', type=int, default=64)
 parser.add_argument('--disc-filters', type=int, default=64)
-parser.add_argument('--clamp', type=float, default=0.01, help='value to clamp weights on')
+parser.add_argument('--lambda1', type=float, default=10, help='Gradient penalty multiplier')
 parser.add_argument('--disc-iters', type=int, default=5,
                     help='number of discriminator iterations per each generator iteration')
 parser.add_argument('--n_extra_layers', type=int, default=0,
@@ -109,30 +110,30 @@ def main():
         disc_iter = 200 if epoch == 0 else args.disc_iters
         for i, (real_inputs, _) in enumerate(tqdm(dataloader)):
             # Train Discriminator
-            # clamp parameters to a cube
             for p in netD.parameters():
                 p.requires_grad = True
-                p.data.clamp_(-args.clamp, args.clamp)
             optimizerD.zero_grad()
 
             # real data
             real_inputs = Variable(real_inputs.cuda())
             errD_real = -netD(real_inputs)
-            optimizerD.step()
 
             # fake data
-            noise = Variable(torch.FloatTensor(real_inputs.shape[0], args.z_size, 1, 1).normal_(0, 1))
+            noise = Variable(torch.FloatTensor(real_inputs.shape[0], args.z_size, 1, 1).normal_(0, 1), volatile=True)
             # with torch.no_grad(): #TODO
             fake_inputs = Variable(netG(noise).data)
 
             errD_fake = netD(fake_inputs)
 
-            errD = errD_real + errD_fake
+            errD = errD_real + errD_fake + args.lambda1 * loss_functions.gradient_penalty(fake_inputs.data,
+                                                                                          real_inputs.data, netD)
             errD.backward()
             optimizerD.step()
 
             # Train Generator
             if i % disc_iter:
+                for p in netD.parameters():
+                    p.requires_grad = False
                 optimizerG.zero_grad()
                 noise = Variable(torch.FloatTensor(args.batch_size, args.z_size, 1, 1).normal_(0, 1))
                 fake = netG(noise)
@@ -153,7 +154,7 @@ def main():
         real_inputs = real_inputs.mul(0.5).add(0.5)
         vutils.save_image(real_inputs.data, '{0}/real_samples.png'.format(save_path))
         # with torch.no_grad(): #TODO
-        fake = netG(Variable(fixed_noise))
+        fake = netG(Variable(fixed_noise, volatile=True))
         fake.data = fake.data.mul(0.5).add(0.5)
         vutils.save_image(fake.data, '{0}/fake_samples_{1}.png'.format(save_path, epoch))
 
