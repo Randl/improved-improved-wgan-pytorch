@@ -30,6 +30,8 @@ parser.add_argument('--z-size', type=int, default=100, help='size of the latent 
 parser.add_argument('--gen-filters', type=int, default=64)
 parser.add_argument('--disc-filters', type=int, default=64)
 parser.add_argument('--lambda1', type=float, default=10, help='Gradient penalty multiplier')
+parser.add_argument('--lambda2', type=float, default=2, help='Gradient penalty multiplier')
+parser.add_argument('--Mtag', type=float, default=0, help='Gradient penalty multiplier')
 parser.add_argument('--disc-iters', type=int, default=5,
                     help='number of discriminator iterations per each generator iteration')
 parser.add_argument('--n_extra_layers', type=int, default=0,
@@ -39,17 +41,17 @@ parser.add_argument('--gpus', default='0', help='gpus used for training - e.g 0,
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 
-parser.add_argument('--epochs', default=90, type=int, metavar='N', help='number of total epochs to run')
-parser.add_argument('-b', '--batch-size', default=256, type=int, metavar='N', help='mini-batch size (default: 256)')
+parser.add_argument('--epochs', default=1500, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('-b', '--batch-size', default=64, type=int, metavar='N', help='mini-batch size (default: 256)')
 
-parser.add_argument('--lrg', '--learning-rate-gen', default=5e-5, type=float, metavar='LRG',
+parser.add_argument('--lrg', '--learning-rate-gen', default=2e-4, type=float, metavar='LRG',
                     help='initial learning rate for generator')
-parser.add_argument('--lrd', '--learning-rate-disc', default=5e-5, type=float, metavar='LRD',
+parser.add_argument('--lrd', '--learning-rate-disc', default=2e-4, type=float, metavar='LRD',
                     help='initial learning rate for discriminator')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float, metavar='W',
                     help='weight decay (default: 1e-4)')
-parser.add_argument('--print-freq', '-p', default=50, type=int, metavar='N', help='print frequency (default: 50)')
+parser.add_argument('--print-freq', '-p', default=200, type=int, metavar='N', help='print frequency (default: 50)')
 
 parser.add_argument('--seed', default=42, type=int, help='random seed (default: 42)')
 
@@ -107,7 +109,8 @@ def main():
     optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lrg)
 
     for epoch in trange(args.epochs):
-        disc_iter = 200 if epoch == 0 else args.disc_iters
+        disc_iter = args.disc_iters
+        # disc_iter = 200 if epoch == 0 else args.disc_iters
         for i, (real_inputs, _) in enumerate(tqdm(dataloader)):
             # Train Discriminator
             for p in netD.parameters():
@@ -116,40 +119,37 @@ def main():
 
             # real data
             real_inputs = Variable(real_inputs.cuda())
-            errD_real = -netD(real_inputs)
+            errD_real, _ = netD(real_inputs)
+            errD_real = -errD_real
 
             # fake data
             noise = Variable(torch.FloatTensor(real_inputs.shape[0], args.z_size, 1, 1).normal_(0, 1), volatile=True)
             # with torch.no_grad(): #TODO
             fake_inputs = Variable(netG(noise).data)
 
-            errD_fake = netD(fake_inputs)
+            errD_fake, _ = netD(fake_inputs)
 
-            errD = errD_real + errD_fake + args.lambda1 * loss_functions.gradient_penalty(fake_inputs.data,
-                                                                                          real_inputs.data, netD)
+            errD = errD_real + errD_fake + args.lambda1 * loss_functions.gradient_penalty(fake_inputs.data, real_inputs.data, netD)  + args.lambda2 * loss_functions.consistency_term(real_inputs, netD, args.Mtag)
             errD.backward()
             optimizerD.step()
 
             # Train Generator
-            if i % disc_iter:
+            if i % disc_iter == 0:
                 for p in netD.parameters():
                     p.requires_grad = False
                 optimizerG.zero_grad()
                 noise = Variable(torch.FloatTensor(args.batch_size, args.z_size, 1, 1).normal_(0, 1))
                 fake = netG(noise)
-                errG = -netD(fake)
+                errG, _ = netD(fake)
+                errG = -errG
                 errG.backward()
                 optimizerG.step()
-            else:
-                noise = Variable(torch.FloatTensor(args.batch_size, args.z_size, 1, 1).normal_(0, 1))
-                fake = netG(noise)
-                errG = netD(fake)
 
-            if i % args.print_freq == 0:
-                tqdm.write('[{}/{}][{}/{}] Loss_D: {} Loss_G: {} '
-                           'Loss_D_real: {} Loss_D_fake {}'.format(epoch, args.epochs, i, len(dataloader),
-                                                                   errD.data.mean(), errG.data.mean(),
-                                                                   errD_real.data.mean(), errD_fake.data.mean()))
+                if i % args.print_freq == 0:
+                    tqdm.write('[{}/{}][{}/{}] Loss_D: {} Loss_G: {} '
+                               'Loss_D_real: {} Loss_D_fake {}'.format(epoch, args.epochs, i, len(dataloader),
+                                                                       errD.data.mean(), errG.data.mean(),
+                                                                       errD_real.data.mean(), errD_fake.data.mean()))
 
         real_inputs = real_inputs.mul(0.5).add(0.5)
         vutils.save_image(real_inputs.data, '{0}/real_samples.png'.format(save_path))
