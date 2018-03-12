@@ -20,6 +20,8 @@ parser = argparse.ArgumentParser(description='PyTorch Wasserstein GAN Training')
 
 parser.add_argument('--results_dir', metavar='RESULTS_DIR', default='./results', help='results dir')
 parser.add_argument('--save', metavar='SAVE', default='', help='saved folder')
+parser.add_argument('--resume', default='', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
+parser.add_argument('-e', '--evaluate', type=str, metavar='FILE', help='evaluate model FILE on validation set')
 
 parser.add_argument('--dataset', metavar='DATASET', default='celeba', help='dataset name')
 parser.add_argument('--dataset-path', metavar='DATASET_PATH', default='./dataset', help='dataset folder')
@@ -97,13 +99,36 @@ def main():
     netD = models.WGANDiscriminator(input_size=args.input_size)
     print(netD)
 
+
     fixed_noise = torch.FloatTensor(args.batch_size, args.z_size, 1, 1).normal_(0, 1)
 
     args.gpus = [int(i) for i in args.gpus.split(',')]
     torch.cuda.set_device(args.gpus[0])
     cudnn.benchmark = True
+
     netG = torch.nn.DataParallel(netG, args.gpus)
     netD = torch.nn.DataParallel(netD, args.gpus)
+    # optionally resume from a checkpoint
+    if args.evaluate:
+        if not os.path.isfile(args.evaluate):
+            print('invalid checkpoint: {}'.format(args.evaluate))
+            return
+        checkpoint = torch.load(args.evaluate)
+        netG.load_state_dict(checkpoint['d_state_dict'])
+        netG.load_state_dict(checkpoint['g_state_dict'])
+    elif args.resume:
+        checkpoint_file = args.resume
+        if os.path.isdir(checkpoint_file):
+            checkpoint_file = os.path.join(checkpoint_file, 'checkpoint.pth')
+        if not os.path.isfile(checkpoint_file):
+            print('invalid checkpoint: {}'.format(args.evaluate))
+            return
+        print("loading checkpoint '{}'".format(args.resume))
+        checkpoint = torch.load(checkpoint_file)
+        args.start_epoch = checkpoint['epoch']
+        netD.load_state_dict(checkpoint['d_state_dict'])
+        netG.load_state_dict(checkpoint['g_state_dict'])
+        print("loaded checkpoint '{}' (epoch {})".format(checkpoint_file, checkpoint['epoch']))
 
     optimizerD = torch.optim.Adam(netD.parameters(), lr=args.lrd)
     optimizerG = torch.optim.Adam(netG.parameters(), lr=args.lrg)
@@ -129,7 +154,9 @@ def main():
 
             errD_fake, _ = netD(fake_inputs)
 
-            errD = errD_real + errD_fake + args.lambda1 * loss_functions.gradient_penalty(fake_inputs.data, real_inputs.data, netD)  + args.lambda2 * loss_functions.consistency_term(real_inputs, netD, args.Mtag)
+            errD = errD_real + errD_fake \
+                   + args.lambda1 * loss_functions.gradient_penalty(fake_inputs.data, real_inputs.data, netD) \
+                   + args.lambda2 * loss_functions.consistency_term(real_inputs, netD, args.Mtag)
             errD.backward()
             optimizerD.step()
 
@@ -157,6 +184,12 @@ def main():
         fake = netG(Variable(fixed_noise, volatile=True))
         fake.data = fake.data.mul(0.5).add(0.5)
         vutils.save_image(fake.data, '{0}/fake_samples_{1}.png'.format(save_path, epoch))
+
+        torch.save({
+            'epoch': epoch,
+            'd_state_dict': netD.state_dict(),
+            'g_state_dict': netG.state_dict(), },
+            os.path.join(save_path, 'checkpoint.pth'))
 
 
 if __name__ == '__main__':
