@@ -28,7 +28,7 @@ parser.add_argument('--dataset-path', metavar='DATASET_PATH', default='./dataset
 
 parser.add_argument('--input-size', type=int, default=64, help='image input size')
 parser.add_argument('--channels', type=int, default=3, help='input image channels')
-parser.add_argument('--z-size', type=int, default=100, help='size of the latent z vector')
+parser.add_argument('--z-size', type=int, default=128, help='size of the latent z vector')
 parser.add_argument('--gen-filters', type=int, default=64)
 parser.add_argument('--disc-filters', type=int, default=64)
 parser.add_argument('--lambda1', type=float, default=10, help='Gradient penalty multiplier')
@@ -99,7 +99,6 @@ def main():
     netD = models.WGANDiscriminator(input_size=args.input_size)
     print(netD)
 
-
     fixed_noise = torch.FloatTensor(args.batch_size, args.z_size, 1, 1).normal_(0, 1)
 
     args.gpus = [int(i) for i in args.gpus.split(',')]
@@ -154,7 +153,7 @@ def main():
 
             errD_fake, _ = netD(fake_inputs)
 
-            errD = errD_real + errD_fake \
+            errD = errD_real.mean(0) + errD_fake.mean(0) \
                    + args.lambda1 * loss_functions.gradient_penalty(fake_inputs.data, real_inputs.data, netD) \
                    + args.lambda2 * loss_functions.consistency_term(real_inputs, netD, args.Mtag)
             errD.backward()
@@ -168,7 +167,7 @@ def main():
                 noise = Variable(torch.FloatTensor(args.batch_size, args.z_size, 1, 1).normal_(0, 1))
                 fake = netG(noise)
                 errG, _ = netD(fake)
-                errG = -errG
+                errG = -errG.mean(0)
                 errG.backward()
                 optimizerG.step()
 
