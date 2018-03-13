@@ -18,12 +18,9 @@ def gradient_penalty(fake_data, real_data, discriminator):
 
 
 def consistency_term(real_data, discriminator, Mtag=0):
-    discriminator.drop = True
-
     d1, d_1 = discriminator(real_data)
     d2, d_2 = discriminator(real_data)
 
-    discriminator.drop = False
     # why max is needed when norm is positive?
     consistency_term = (d1 - d2).norm(2, dim=1) + 0.1 * (d_1 - d_2).norm(2, dim=1) - Mtag
     return consistency_term.mean()

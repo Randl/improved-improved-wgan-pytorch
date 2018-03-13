@@ -99,8 +99,8 @@ class WGANGenerator(WGAN):
 
 
 class WGANDiscriminator(WGAN):
-    def __init__(self, input_size=32, in_channels=3, num_filters=64, n_extra_layers=0, activation=nn.LeakyReLU,
-                 dropout_rate=0.5):
+    def __init__(self, input_size=32, in_channels=3, num_filters=64,
+                 n_extra_layers=0, activation=nn.LeakyReLU, dropout_rate=0.5):
         super(WGANDiscriminator, self).__init__()
         self.activation = activation
         self.has_extra = n_extra_layers > 0
@@ -116,14 +116,9 @@ class WGANDiscriminator(WGAN):
         self.conv, last_filter = self._make_conv(num_filters)
         self.final_fc = nn.Linear(last_filter * 4 * 4, 1)
 
-        self.drop = False
-
         self.init_params()
 
     def forward(self, x):
-        for m in self.modules():
-            if isinstance(m, nn.Dropout):
-                m.training = not self.drop
         x = self.first_conv(x)
         if self.has_extra:
             x = self.extra(x)

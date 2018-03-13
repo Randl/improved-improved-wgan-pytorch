@@ -29,8 +29,8 @@ parser.add_argument('--dataset-path', metavar='DATASET_PATH', default='./dataset
 parser.add_argument('--input-size', type=int, default=64, help='image input size')
 parser.add_argument('--channels', type=int, default=3, help='input image channels')
 parser.add_argument('--z-size', type=int, default=128, help='size of the latent z vector')
-parser.add_argument('--gen-filters', type=int, default=64)
-parser.add_argument('--disc-filters', type=int, default=64)
+parser.add_argument('--gen-filters', type=int, default=128)
+parser.add_argument('--disc-filters', type=int, default=128)
 parser.add_argument('--lambda1', type=float, default=10, help='Gradient penalty multiplier')
 parser.add_argument('--lambda2', type=float, default=2, help='Gradient penalty multiplier')
 parser.add_argument('--Mtag', type=float, default=0, help='Gradient penalty multiplier')
@@ -94,9 +94,9 @@ def main():
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True,
                                              num_workers=args.workers)
 
-    netG = models.WGANGenerator(output_size=args.input_size)
+    netG = models.WGANGenerator(output_size=args.input_size, num_filters=args.gen_filters)
     print(netG)
-    netD = models.WGANDiscriminator(input_size=args.input_size)
+    netD = models.WGANDiscriminator(input_size=args.input_size, num_filters=args.disc_filters)
     print(netD)
 
     fixed_noise = torch.FloatTensor(args.batch_size, args.z_size, 1, 1).normal_(0, 1)
@@ -105,8 +105,8 @@ def main():
     torch.cuda.set_device(args.gpus[0])
     cudnn.benchmark = True
 
-    netG = torch.nn.DataParallel(netG, args.gpus)
-    netD = torch.nn.DataParallel(netD, args.gpus)
+    netG = torch.nn.DataParallel(netG, args.gpus).cuda()
+    netD = torch.nn.DataParallel(netD, args.gpus).cuda()
     # optionally resume from a checkpoint
     if args.evaluate:
         if not os.path.isfile(args.evaluate):
