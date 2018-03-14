@@ -56,8 +56,9 @@ class WGANGenerator(WGAN):
         self.out_size = output_size
 
         first_filter = (self.out_size // 8) * num_filters
-        self.first_fc = nn.Sequential(
-            nn.Linear(input_size, first_filter * 4 * 4),
+        self.first_conv_trans = nn.Sequential(
+            nn.ConvTranspose2d(input_size, first_filter, kernel_size=4, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(first_filter),
             activation(inplace=True))
 
         self.conv_trans = self._make_conv_trans(first_filter)
@@ -72,8 +73,7 @@ class WGANGenerator(WGAN):
         self.init_params()
 
     def forward(self, x):
-        x = self.first_fc(x.squeeze())
-        x = x.view(x.shape[0], -1, 4, 4)
+        x = self.first_conv_trans(x)
         x = self.conv_trans(x)
         if self.has_extra:
             x = self.extra(x)
@@ -114,7 +114,7 @@ class WGANDiscriminator(WGAN):
             self.extra = self._make_extra(nn.Conv2d, num_filters, n_extra_layers, drop=True, dropout=dropout_rate)
 
         self.conv, last_filter = self._make_conv(num_filters)
-        self.final_fc = nn.Linear(last_filter * 4 * 4, 1)
+        self.final_conv = nn.Conv2d(last_filter, 1, kernel_size=4, stride=1, padding=0, bias=False)
 
         self.init_params()
 
@@ -123,8 +123,7 @@ class WGANDiscriminator(WGAN):
         if self.has_extra:
             x = self.extra(x)
         pre_last = self.conv(x)
-        pre_last = pre_last.view(pre_last.shape[0], -1)
-        x = self.final_fc(pre_last)
+        x = self.final_conv(pre_last)
         return x, pre_last
 
     def _make_conv(self, num_filters):

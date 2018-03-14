@@ -29,8 +29,8 @@ parser.add_argument('--dataset-path', metavar='DATASET_PATH', default='./dataset
 parser.add_argument('--input-size', type=int, default=64, help='image input size')
 parser.add_argument('--channels', type=int, default=3, help='input image channels')
 parser.add_argument('--z-size', type=int, default=128, help='size of the latent z vector')
-parser.add_argument('--gen-filters', type=int, default=128)
-parser.add_argument('--disc-filters', type=int, default=128)
+parser.add_argument('--gen-filters', type=int, default=64)
+parser.add_argument('--disc-filters', type=int, default=64)
 parser.add_argument('--lambda1', type=float, default=10, help='Gradient penalty multiplier')
 parser.add_argument('--lambda2', type=float, default=2, help='Gradient penalty multiplier')
 parser.add_argument('--Mtag', type=float, default=0, help='Gradient penalty multiplier')
@@ -44,7 +44,7 @@ parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 
 parser.add_argument('--epochs', default=1500, type=int, metavar='N', help='number of total epochs to run')
-parser.add_argument('-b', '--batch-size', default=64, type=int, metavar='N', help='mini-batch size (default: 256)')
+parser.add_argument('-b', '--batch-size', default=256, type=int, metavar='N', help='mini-batch size (default: 256)')
 
 parser.add_argument('--lrg', '--learning-rate-gen', default=2e-4, type=float, metavar='LRG',
                     help='initial learning rate for generator')
