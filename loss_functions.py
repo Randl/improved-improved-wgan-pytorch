@@ -1,12 +1,11 @@
 import torch
 import torch.autograd as autograd
-from torch.autograd import Variable
 
 
 def gradient_penalty(fake_data, real_data, discriminator):
     alpha = torch.cuda.FloatTensor(fake_data.shape[0], 1, 1, 1).uniform_(0, 1).expand(fake_data.shape)
     interpolates = alpha * fake_data + (1 - alpha) * real_data
-    interpolates = Variable(interpolates, requires_grad=True)
+    interpolates.requires_grad = True
     disc_interpolates, _ = discriminator(interpolates)
 
     gradients = autograd.grad(outputs=disc_interpolates, inputs=interpolates,

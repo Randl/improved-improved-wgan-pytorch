@@ -10,7 +10,6 @@ import torch.utils.data
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
-from torch.autograd import Variable
 from tqdm import tqdm, trange
 
 import loss_functions
@@ -142,20 +141,20 @@ def main():
             optimizerD.zero_grad()
 
             # real data
-            real_inputs = Variable(real_inputs.cuda())
+            real_inputs = real_inputs.cuda()
             errD_real, _ = netD(real_inputs)
             errD_real = -errD_real
 
             # fake data
-            noise = Variable(torch.FloatTensor(real_inputs.shape[0], args.z_size, 1, 1).normal_(0, 1), volatile=True)
-            # with torch.no_grad(): #TODO
-            fake_inputs = Variable(netG(noise).data)
+            noise = torch.FloatTensor(real_inputs.shape[0], args.z_size, 1, 1).normal_(0, 1)
+            with torch.no_grad():
+                fake_inputs = netG(noise)
 
             errD_fake, _ = netD(fake_inputs)
 
-            errD = errD_real.mean(0) + errD_fake.mean(0) \
-                   + args.lambda1 * loss_functions.gradient_penalty(fake_inputs.data, real_inputs.data, netD) \
-                   + args.lambda2 * loss_functions.consistency_term(real_inputs, netD, args.Mtag)
+            gp = loss_functions.gradient_penalty(fake_inputs.data, real_inputs.data, netD)
+            ct = loss_functions.consistency_term(real_inputs, netD, args.Mtag)
+            errD = errD_real.mean(0) + errD_fake.mean(0) + args.lambda1 * gp + args.lambda2 * ct
             errD.backward()
             optimizerD.step()
 
@@ -164,7 +163,7 @@ def main():
                 for p in netD.parameters():
                     p.requires_grad = False
                 optimizerG.zero_grad()
-                noise = Variable(torch.FloatTensor(args.batch_size, args.z_size, 1, 1).normal_(0, 1))
+                noise = torch.FloatTensor(args.batch_size, args.z_size, 1, 1).normal_(0, 1)
                 fake = netG(noise)
                 errG, _ = netD(fake)
                 errG = -errG.mean(0)
@@ -179,8 +178,8 @@ def main():
 
         real_inputs = real_inputs.mul(0.5).add(0.5)
         vutils.save_image(real_inputs.data, '{0}/real_samples.png'.format(save_path))
-        # with torch.no_grad(): #TODO
-        fake = netG(Variable(fixed_noise, volatile=True))
+        with torch.no_grad():
+            fake = netG(fixed_noise)
         fake.data = fake.data.mul(0.5).add(0.5)
         vutils.save_image(fake.data, '{0}/fake_samples_{1}.png'.format(save_path, epoch))
 

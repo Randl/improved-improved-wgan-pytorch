@@ -2,7 +2,6 @@ from collections import OrderedDict
 
 import numpy as np
 import torch.nn as nn
-from torch.autograd import Variable
 from torch.nn import init
 
 
@@ -13,16 +12,16 @@ class WGAN(nn.Module):
     def init_params(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                init.normal(m.weight, std=0.02)
+                init.normal_(m.weight, std=0.02)
                 if m.bias is not None:
-                    init.constant(m.bias, 0)
+                    init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
-                init.constant(m.weight, 1)
-                init.constant(m.bias, 0)
+                init.constant_(m.weight, 1)
+                init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
-                init.normal(m.weight, std=0.02)
+                init.normal_(m.weight, std=0.02)
                 if m.bias is not None:
-                    init.constant(m.bias, 0)
+                    init.constant_(m.bias, 0)
 
     def _make_extra(self, layer_type, num_filters, n_extra_layers, drop=False, dropout=0):
         modules = OrderedDict()
@@ -108,8 +107,8 @@ class WGANDiscriminator(WGAN):
         self.dropout_rate = dropout_rate
 
         self.first_conv = nn.Sequential(nn.Conv2d(in_channels, num_filters, kernel_size=5, stride=2, padding=2),
-                                        activation(inplace=True),
-                                        nn.Dropout(p=dropout_rate, inplace=True))
+                                        activation(),
+                                        nn.Dropout(p=dropout_rate))
         if self.has_extra:
             self.extra = self._make_extra(nn.Conv2d, num_filters, n_extra_layers, drop=True, dropout=dropout_rate)
 
@@ -135,8 +134,8 @@ class WGANDiscriminator(WGAN):
             name = stage_name + "_{}".format(i + 1)
             module = nn.Sequential(
                 nn.Conv2d(num_filters, num_filters * 2, kernel_size=5, stride=2, padding=2),
-                self.activation(inplace=True),
-                nn.Dropout(p=self.dropout_rate, inplace=True))
+                self.activation(),
+                nn.Dropout(p=self.dropout_rate))
             num_filters *= 2
             modules[name] = module
 
