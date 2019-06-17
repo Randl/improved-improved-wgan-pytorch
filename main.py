@@ -81,6 +81,15 @@ def main():
                                        transforms.ToTensor(),
                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                                    ]))
+        args.channels = 3
+    elif args.dataset == 'mnist':
+        dataset = datasets.MNIST(root=args.dataset_path, download=True,
+                                 transform=transforms.Compose([
+                                     transforms.Resize(args.input_size),
+                                     transforms.ToTensor(),
+                                     transforms.Normalize((0.5,), (0.5,)),
+                                 ]))
+        args.channels = 1
     else:
         # folder dataset
         dataset = datasets.ImageFolder(root=args.dataset_path,
@@ -90,12 +99,14 @@ def main():
                                            transforms.ToTensor(),
                                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                                        ]))
+        args.channels = 3
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True,
                                              num_workers=args.workers)
 
-    netG = models.WGANGenerator(output_size=args.input_size, num_filters=args.gen_filters)
+    netG = models.WGANGenerator(output_size=args.input_size, out_channels=args.channels, num_filters=args.gen_filters)
     print(netG)
-    netD = models.WGANDiscriminator(input_size=args.input_size, num_filters=args.disc_filters)
+    netD = models.WGANDiscriminator(input_size=args.input_size, in_channels=args.channels,
+                                    num_filters=args.disc_filters)
     print(netD)
 
     fixed_noise = torch.FloatTensor(args.batch_size, args.z_size, 1, 1).normal_(0, 1)
